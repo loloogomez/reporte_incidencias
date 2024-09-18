@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from datetime import date
+from datetime import datetime
 
 # Esquema para 'Linea'
 class LineaBase(BaseModel):
@@ -24,14 +24,13 @@ class ClienteMolinetesBase(BaseModel):
     nombre_usuario: str = Field(..., max_length=50)
     telefono: Optional[str] = Field(None, max_length=50)
     mail: Optional[str] = Field(None, max_length=50)
-    password: str = Field(..., max_length=50)
     id_linea_asociada: int
 
 class ClienteMolinetesCreate(ClienteMolinetesBase):
-    pass
+    password: str = Field(..., max_length=50)
 
 class ClienteMolinetesUpdate(ClienteMolinetesBase):
-    pass
+    password: str = Field(..., max_length=50)
 
 class ClienteMolinetes(ClienteMolinetesBase):
     id_cliente: int
@@ -79,15 +78,15 @@ class Estacion(EstacionBase):
 
 # Esquema para 'Incidencia'
 class IncidenciaBase(BaseModel):
-    fecha_reclamo: date
-    fecha_finalizacion: Optional[date]
+    fecha_reclamo: Optional[datetime] = None
+    fecha_finalizacion: Optional[datetime] = None
     prioridad: str = Field(..., max_length=25)
     flag: str = Field(..., max_length=15)
     tipo_problema: str = Field(..., max_length=50)
     descripcion: Optional[str] = Field(None, max_length=250)
     tipo_resolucion: Optional[str] = Field(None, max_length=250)
     id_cliente: int
-    id_tecnico_asignado: Optional[int]
+    id_tecnico_asignado: Optional[int] = None
     id_equipamiento: int
 
 class IncidenciaCreate(IncidenciaBase):
@@ -107,15 +106,14 @@ class Incidencia(IncidenciaBase):
 class TecnicoMolinetesBase(BaseModel):
     nombre_apellido: str = Field(..., max_length=50)
     telefono: Optional[str] = Field(None, max_length=50)
-    mail: Optional[str] = Field(None, max_length=50)
-    password: str = Field(..., max_length=50)
+    mail: str = Field(None, max_length=50)
     id_linea_recurrente: int
 
 class TecnicoMolinetesCreate(TecnicoMolinetesBase):
-    pass
+    password: str = Field(..., max_length=50)
 
 class TecnicoMolinetesUpdate(TecnicoMolinetesBase):
-    pass
+    password: str = Field(..., max_length=50)
 
 class TecnicoMolinetes(TecnicoMolinetesBase):
     id_tecnico: int

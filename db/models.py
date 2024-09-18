@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Date
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 from .client import Base
 
@@ -59,8 +59,8 @@ class Incidencia(Base):
     __tablename__ = "incidencia"
 
     id_incidencia = Column(Integer, primary_key=True, autoincrement=True)
-    fecha_reclamo = Column(Date, nullable=False)
-    fecha_finalizacion = Column(Date, nullable=True)
+    fecha_reclamo = Column(DateTime, nullable=False)
+    fecha_finalizacion = Column(DateTime, nullable=True)
     prioridad = Column(String(25), nullable=False)
     flag = Column(String(15), nullable=False)
     tipo_problema = Column(String(50), nullable=False)
@@ -82,7 +82,7 @@ class TecnicoMolinetes(Base):
     id_tecnico = Column(Integer, primary_key=True, autoincrement=True)
     nombre_apellido = Column(String(50), nullable=False)
     telefono = Column(String(50), nullable=True)
-    mail = Column(String(50), nullable=True)
+    mail = Column(String(50), nullable=False)
     password = Column(String(50), nullable=False)
     id_linea_recurrente = Column(Integer, ForeignKey("linea.id_linea"), nullable=False)
 

@@ -29,6 +29,18 @@ async def get_equipamiento(id_equipamiento: int, db: Session = Depends(get_db)):
 # Crear nuevo equipamiento
 @router.post("/", response_model=schemas.Equipamiento, status_code=201)
 async def create_equipamiento(equipamiento: schemas.EquipamientoCreate, db: Session = Depends(get_db)):
+    
+    # Verificar si el id de la estacion asociada es valido
+    db_estacion = db.query(models.Estacion).filter(models.Estacion.id_estacion == equipamiento.id_estacion_asociada).first()
+    
+    if not db_estacion:
+        raise HTTPException(status_code=404, detail="Estacion asociada no encontrada")
+
+    # Verificar si ya existe un equipamiento con el mismo numero de chasis
+    existing_equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.numero_chasis == equipamiento.numero_chasis).first()
+    if existing_equipamiento:
+        raise HTTPException(status_code=400, detail="El numero de chasis ya existe")
+    
     new_equipamiento = models.Equipamiento(**equipamiento.dict())
     db.add(new_equipamiento)
     db.commit()
@@ -41,6 +53,20 @@ async def update_equipamiento(id_equipamiento: int, equipamiento: schemas.Equipa
     db_equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.id_equipamiento == id_equipamiento).first()
     if not db_equipamiento:
         raise HTTPException(status_code=404, detail="Equipamiento no encontrado")
+    
+    # Verificar si el id de la estacion asociada es valido
+    db_estacion = db.query(models.Estacion).filter(models.Estacion.id_estacion == equipamiento.id_estacion_asociada).first()
+    
+    if not db_estacion:
+        raise HTTPException(status_code=404, detail="Estacion asociada no encontrada")
+    
+    # Verificar si ya existe otro equipamiento con el mismo numero de chasis
+    existing_equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.numero_chasis == equipamiento.numero_chasis).first()
+
+    # Asegurarse de que no sea el mismo equipamiento (en caso de que el numero de chasis no haya cambiado)
+    if existing_equipamiento and existing_equipamiento.id_equipamiento != id_equipamiento:
+        raise HTTPException(status_code=400, detail="El numero de chasis del equipamiento ya está en uso por otro equipamiento")
+
     for key, value in equipamiento.dict(exclude_unset=True).items():
         setattr(db_equipamiento, key, value)
     db.commit()
