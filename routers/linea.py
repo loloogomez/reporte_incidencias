@@ -2,8 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from db import schemas, models
 from db.client import SessionLocal
 from sqlalchemy.orm import Session
+from auth import get_current_user
 
-router = APIRouter(prefix="/linea", tags=["linea"], responses={404: {"message": "No encontrado"}})
+router = APIRouter(prefix="/linea", tags=["linea"], responses={404: {"message": "No encontrado"}}, dependencies=[Depends(get_current_user)])
 
 # Dependency
 def get_db():
