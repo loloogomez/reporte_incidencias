@@ -22,7 +22,7 @@ class ClienteMolinetes(Base):
     nombre_usuario = Column(String(50), unique=True, nullable=False)
     telefono = Column(String(50), nullable=True)
     mail = Column(String(50), nullable=True)
-    password = Column(String(50), nullable=False)
+    password = Column(String(60), nullable=False)
     id_linea_asociada = Column(Integer, ForeignKey("linea.id_linea"), nullable=False)
 
     # Relaciones
@@ -80,10 +80,11 @@ class TecnicoMolinetes(Base):
     __tablename__ = "tecnico_molinetes"
 
     id_tecnico = Column(Integer, primary_key=True, autoincrement=True)
+    dni = Column(Integer, unique=True, nullable=False)
     nombre_apellido = Column(String(50), nullable=False)
     telefono = Column(String(50), nullable=True)
     mail = Column(String(50), nullable=False)
-    password = Column(String(50), nullable=False)
+    password = Column(String(60), nullable=False)
     id_linea_recurrente = Column(Integer, ForeignKey("linea.id_linea"), nullable=False)
 
     # Relaciones

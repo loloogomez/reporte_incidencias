@@ -2,8 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from db import schemas, models
 from db.client import SessionLocal
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
-from auth import create_access_token, verify_password, get_current_user
+from auth import create_access_token, verify_password, get_current_user, get_password_hash
 from fastapi.security import OAuth2PasswordRequestForm
 
 router = APIRouter(prefix="/tecnico_molinetes", tags=["tecnico_molinetes"], responses={404: {"message": "No encontrado"}})
@@ -15,8 +14,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-crypt = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Endpoint para iniciar sesión
 @router.post("/login")
@@ -62,7 +59,7 @@ async def create_tecnico(tecnico: schemas.TecnicoMolinetesCreate, db: Session = 
         raise HTTPException(status_code=400, detail="El mail ya existe")
 
     # encriptar la clave
-    tecnico.password = crypt.hash(tecnico.password)
+    tecnico.password =  get_password_hash(tecnico.password)
     
     new_tecnico = models.TecnicoMolinetes(**tecnico.dict())
     db.add(new_tecnico)

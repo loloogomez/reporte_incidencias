@@ -27,11 +27,10 @@ class ClienteMolinetesBase(BaseModel):
     id_linea_asociada: int
 
 class ClienteMolinetesCreate(ClienteMolinetesBase):
-    password: str = Field(..., max_length=50)
+    password: str = Field(..., max_length=60)
 
 class ClienteMolinetesUpdate(ClienteMolinetesBase):
-    password: str = Field(..., max_length=50)
-
+    password: str = Field(..., max_length=60)
 class ClienteMolinetes(ClienteMolinetesBase):
     id_cliente: int
 
@@ -108,12 +107,13 @@ class TecnicoMolinetesBase(BaseModel):
     telefono: Optional[str] = Field(None, max_length=50)
     mail: str = Field(None, max_length=50)
     id_linea_recurrente: int
+    dni: int
 
 class TecnicoMolinetesCreate(TecnicoMolinetesBase):
-    password: str = Field(..., max_length=50)
+    password: str = Field(..., max_length=60)
 
 class TecnicoMolinetesUpdate(TecnicoMolinetesBase):
-    password: str = Field(..., max_length=50)
+    password: str = Field(..., max_length=60)
 
 class TecnicoMolinetes(TecnicoMolinetesBase):
     id_tecnico: int
