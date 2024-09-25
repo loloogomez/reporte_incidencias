@@ -16,7 +16,7 @@ class Linea(LineaBase):
     id_linea: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 # Esquema para 'ClienteMolinetes'
@@ -35,8 +35,7 @@ class ClienteMolinetes(ClienteMolinetesBase):
     id_cliente: int
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 
 # Esquema para 'Equipamiento'
 class EquipamientoBase(BaseModel):
@@ -54,8 +53,7 @@ class Equipamiento(EquipamientoBase):
     id_equipamiento: int
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 
 # Esquema para 'Estacion'
 class EstacionBase(BaseModel):
@@ -72,8 +70,7 @@ class Estacion(EstacionBase):
     id_estacion: int
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 
 # Esquema para 'Incidencia'
 class IncidenciaBase(BaseModel):
@@ -98,8 +95,7 @@ class Incidencia(IncidenciaBase):
     id_incidencia: int
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
 
 # Esquema para 'TecnicoMolinetes'
 class TecnicoMolinetesBase(BaseModel):
@@ -119,4 +115,4 @@ class TecnicoMolinetes(TecnicoMolinetesBase):
     id_tecnico: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
