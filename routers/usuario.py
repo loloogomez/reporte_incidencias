@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from db import schemas, models
 from db.client import SessionLocal
 from sqlalchemy.orm import Session
-from auth import get_password_hash
+from routers.auth import get_password_hash, get_current_user
 from fastapi.security import OAuth2PasswordRequestForm
 
 router = APIRouter(prefix="/usuario", tags=["usuario"], responses={404: {"message": "No encontrado"}})
@@ -25,7 +25,7 @@ async def get_users(db: Session = Depends(get_db), current_user = Depends(get_cu
 @router.get("/{id_usuario}", response_model=schemas.Usuario, status_code=200)
 async def get_Usuario(id_usuario: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     usuario = db.query(models.Usuario).filter(models.Usuario.id_usuario == id_usuario).first()
-    if not Usuario:
+    if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return usuario
 
@@ -45,7 +45,7 @@ async def create_Usuario(Usuario: schemas.UsuarioCreate, db: Session = Depends(g
         raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
 
     # encriptar la clave
-    Usuario.password = crypt.hash(Usuario.password)
+    Usuario.password = get_password_hash(Usuario.password)
 
     new_Usuario = models.Usuario(**Usuario.dict())
     db.add(new_Usuario)

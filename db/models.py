@@ -55,8 +55,8 @@ class Incidencia(Base):
     id_equipamiento = Column(Integer, ForeignKey("equipamiento.id_equipamiento"), nullable=False)
 
     # Relaciones
-    cliente = relationship("ClienteMolinetes", back_populates="incidencias")
-    tecnico = relationship("TecnicoMolinetes", back_populates="incidencias")
+    cliente = relationship("Usuario", foreign_keys=[id_cliente], back_populates="incidencias_cliente")
+    tecnico = relationship("Usuario", foreign_keys=[id_tecnico_asignado], back_populates="incidencias_tecnico")
     equipamiento = relationship("Equipamiento", back_populates="incidencias")
 
 # Modelo para la tabla 'usuario'

@@ -2,7 +2,7 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, APIRouter
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from db.client import SessionLocal
 from db import models
@@ -26,7 +26,7 @@ ACCESS_TOKEN_EXPIRE_HOURS = 5
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Ruta donde FastAPI espera el token de acceso
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
     
 # Endpoint para iniciar sesión
 @router.post("/token")
@@ -34,7 +34,7 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    user = db.query(models.Usuario).filter(models.User.nombre_usuario == form_data.username).first()
+    user = db.query(models.Usuario).filter(models.Usuario.nombre_usuario == form_data.username).first()
 
     # Verificar credenciales
     if not user or not verify_password(form_data.password, user.password):
@@ -81,13 +81,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         if id_usuario is None or tipo_usuario is None:
             raise credentials_exception
         
-        # Verificar el tipo de usuario
-        if tipo_usuario == "cliente":
-            user = db.query(models.ClienteMolinetes).filter(models.ClienteMolinetes.id_cliente == id_usuario).first()
-        elif tipo_usuario == "tecnico":
-            user = db.query(models.TecnicoMolinetes).filter(models.TecnicoMolinetes.id_tecnico == id_usuario).first()
-        else:
-            raise credentials_exception
+        user = db.query(models.Usuario).filter(models.Usuario.id_usuario == id_usuario).first()
         
         if user is None:
             raise credentials_exception

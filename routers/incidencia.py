@@ -3,7 +3,7 @@ from db import schemas, models
 from db.client import SessionLocal
 from sqlalchemy.orm import Session
 from datetime import datetime
-from auth import get_current_user
+from routers.auth import get_current_user
 
 router = APIRouter(prefix="/incidencia", tags=["incidencia"], responses={404: {"message": "No encontrado"}}, dependencies=[Depends(get_current_user)])
 
@@ -54,11 +54,11 @@ async def get_incidencias_por_linea(id_linea: int, db: Session = Depends(get_db)
 async def create_incidencia(incidencia: schemas.IncidenciaCreate, db: Session = Depends(get_db)):
 
     if incidencia.id_tecnico_asignado:
-        db_tecnico = db.query(models.TecnicoMolinetes).filter(models.TecnicoMolinetes.id_tecnico == incidencia.id_tecnico_asignado).first()
+        db_tecnico = db.query(models.Usuario).filter(models.Usuario.id_usuario == incidencia.id_tecnico_asignado).first()
         if not db_tecnico:
             raise HTTPException(status_code=404, detail="Técnico no encontrado")
 
-    db_cliente = db.query(models.ClienteMolinetes).filter(models.ClienteMolinetes.id_cliente == incidencia.id_cliente).first()
+    db_cliente = db.query(models.Usuario).filter(models.Usuario.id_usuario == incidencia.id_cliente).first()
     if not db_cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     
@@ -82,11 +82,11 @@ async def update_incidencia(id_incidencia: int, incidencia: schemas.IncidenciaUp
         raise HTTPException(status_code=404, detail="Incidencia no encontrada")
 
     if incidencia.id_tecnico_asignado:
-        db_tecnico = db.query(models.TecnicoMolinetes).filter(models.TecnicoMolinetes.id_tecnico == incidencia.id_tecnico_asignado).first()
+        db_tecnico = db.query(models.Usuario).filter(models.TecnicoMolinetes.id_tecnico == incidencia.id_tecnico_asignado).first()
         if not db_tecnico:
             raise HTTPException(status_code=404, detail="Técnico no encontrado")
 
-    db_cliente = db.query(models.ClienteMolinetes).filter(models.ClienteMolinetes.id_cliente == incidencia.id_cliente).first()
+    db_cliente = db.query(models.Usuario).filter(models.Usuario.id_usuario == incidencia.id_cliente).first()
     if not db_cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     
