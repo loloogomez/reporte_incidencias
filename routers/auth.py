@@ -1,11 +1,13 @@
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, APIRouter
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from db.client import SessionLocal
 from db import models
+
+router = APIRouter(prefix="/auth", tags=["auth"], responses={404: {"message": "No encontrado"}})
 
 # Dependency
 def get_db():
@@ -24,7 +26,29 @@ ACCESS_TOKEN_EXPIRE_HOURS = 5
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Ruta donde FastAPI espera el token de acceso
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+    
+# Endpoint para iniciar sesión
+@router.post("/token")
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.Usuario).filter(models.User.nombre_usuario == form_data.username).first()
+
+    # Verificar credenciales
+    if not user or not verify_password(form_data.password, user.password):
+        raise HTTPException(
+            status_code=401,
+            detail="Credenciales incorrectas",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Si las credenciales son válidas, generar el token
+    access_token = create_access_token(data={"sub": user.id_usuario, "tipo_usuario": user.role})
+    
+    return {"access_token": access_token, "token_type": "bearer"}
+
 
 # Función para hashear contraseñas
 def get_password_hash(password: str):

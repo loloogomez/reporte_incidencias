@@ -1,6 +1,31 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
+from enum import Enum
+
+# Definir el enum para roles de usuario
+class RoleEnum(str, Enum):
+    cliente = "cliente"
+    tecnico = "tecnico"
+
+# Esquema Base para todos los usuarios (Cliente y Técnico)
+class UsuarioBase(BaseModel):
+    nombre_usuario: str = Field(..., max_length=50)
+    telefono: Optional[str] = Field(None, max_length=50)
+    mail: Optional[str] = Field(None, max_length=50)
+    rol: RoleEnum = Field(...)
+
+class UsuarioCreate(UsuarioBase):
+    password: str = Field(..., max_length=60)
+
+class UsuarioUpdate(UsuarioBase):
+    password: Optional[str] = Field(None, max_length=60)
+
+class Usuario(UsuarioBase):
+    id_usuario: int
+
+    class Config:
+        from_attributes = True
 
 # Esquema para 'Linea'
 class LineaBase(BaseModel):
@@ -14,25 +39,6 @@ class LineaUpdate(LineaBase):
 
 class Linea(LineaBase):
     id_linea: int
-
-    class Config:
-        from_attributes = True
-
-
-# Esquema para 'ClienteMolinetes'
-class ClienteMolinetesBase(BaseModel):
-    nombre_usuario: str = Field(..., max_length=50)
-    telefono: Optional[str] = Field(None, max_length=50)
-    mail: Optional[str] = Field(None, max_length=50)
-    id_linea_asociada: int
-
-class ClienteMolinetesCreate(ClienteMolinetesBase):
-    password: str = Field(..., max_length=60)
-
-class ClienteMolinetesUpdate(ClienteMolinetesBase):
-    password: str = Field(..., max_length=60)
-class ClienteMolinetes(ClienteMolinetesBase):
-    id_cliente: int
 
     class Config:
         from_attributes = True
@@ -81,7 +87,7 @@ class IncidenciaBase(BaseModel):
     tipo_problema: str = Field(..., max_length=50)
     descripcion: Optional[str] = Field(None, max_length=250)
     tipo_resolucion: Optional[str] = Field(None, max_length=250)
-    id_cliente: int
+    id_usuario: int  # Se usa el id del Usuario en lugar de id_cliente
     id_tecnico_asignado: Optional[int] = None
     id_equipamiento: int
 
@@ -93,26 +99,6 @@ class IncidenciaUpdate(IncidenciaBase):
 
 class Incidencia(IncidenciaBase):
     id_incidencia: int
-
-    class Config:
-        from_attributes = True
-
-# Esquema para 'TecnicoMolinetes'
-class TecnicoMolinetesBase(BaseModel):
-    nombre_apellido: str = Field(..., max_length=50)
-    telefono: Optional[str] = Field(None, max_length=50)
-    mail: str = Field(None, max_length=50)
-    id_linea_recurrente: int
-    dni: int
-
-class TecnicoMolinetesCreate(TecnicoMolinetesBase):
-    password: str = Field(..., max_length=60)
-
-class TecnicoMolinetesUpdate(TecnicoMolinetesBase):
-    password: str = Field(..., max_length=60)
-
-class TecnicoMolinetes(TecnicoMolinetesBase):
-    id_tecnico: int
 
     class Config:
         from_attributes = True

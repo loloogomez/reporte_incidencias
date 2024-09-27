@@ -11,23 +11,7 @@ class Linea(Base):
 
     # Relaciones
     estaciones = relationship("Estacion", back_populates="linea")
-    clientes = relationship("ClienteMolinetes", back_populates="linea")
-    tecnicos = relationship("TecnicoMolinetes", back_populates="linea")
-
-# Modelo para la tabla 'cliente_molinetes'
-class ClienteMolinetes(Base):
-    __tablename__ = "cliente_molinetes"
-
-    id_cliente = Column(Integer, primary_key=True, autoincrement=True)
-    nombre_usuario = Column(String(50), unique=True, nullable=False)
-    telefono = Column(String(50), nullable=True)
-    mail = Column(String(50), nullable=True)
-    password = Column(String(60), nullable=False)
-    id_linea_asociada = Column(Integer, ForeignKey("linea.id_linea"), nullable=False)
-
-    # Relaciones
-    linea = relationship("Linea", back_populates="clientes")
-    incidencias = relationship("Incidencia", back_populates="cliente")
+    usuarios = relationship("Usuario", back_populates="linea")
 
 # Modelo para la tabla 'equipamiento'
 class Equipamiento(Base):
@@ -66,8 +50,8 @@ class Incidencia(Base):
     tipo_problema = Column(String(50), nullable=False)
     descripcion = Column(String(250), nullable=True)
     tipo_resolucion = Column(String(250), nullable=True)
-    id_cliente = Column(Integer, ForeignKey("cliente_molinetes.id_cliente"), nullable=False)
-    id_tecnico_asignado = Column(Integer, ForeignKey("tecnico_molinetes.id_tecnico"), nullable=True)
+    id_cliente = Column(Integer, ForeignKey("usuario.id_usuario"), nullable=False)
+    id_tecnico_asignado = Column(Integer, ForeignKey("usuario.id_usuario"), nullable=True)
     id_equipamiento = Column(Integer, ForeignKey("equipamiento.id_equipamiento"), nullable=False)
 
     # Relaciones
@@ -75,18 +59,19 @@ class Incidencia(Base):
     tecnico = relationship("TecnicoMolinetes", back_populates="incidencias")
     equipamiento = relationship("Equipamiento", back_populates="incidencias")
 
-# Modelo para la tabla 'tecnico_molinetes'
-class TecnicoMolinetes(Base):
-    __tablename__ = "tecnico_molinetes"
+# Modelo para la tabla 'usuario'
+class Usuario(Base):
+    __tablename__ = "usuario"
 
-    id_tecnico = Column(Integer, primary_key=True, autoincrement=True)
-    dni = Column(Integer, unique=True, nullable=False)
-    nombre_apellido = Column(String(50), nullable=False)
-    telefono = Column(String(50), nullable=True)
-    mail = Column(String(50), nullable=False)
+    id_usuario = Column(Integer, primary_key=True, autoincrement=True)
+    nombre_usuario = Column(String(50), unique=True, nullable=False)
     password = Column(String(60), nullable=False)
-    id_linea_recurrente = Column(Integer, ForeignKey("linea.id_linea"), nullable=False)
+    mail = Column(String(50), unique=True, nullable=False)
+    role = Column(String(20), nullable=False)  # Definir rol (cliente, técnico, etc.)
+    telefono = Column(String(50), nullable=True)
+    id_linea_asociada = Column(Integer, ForeignKey("linea.id_linea"), nullable=False)
 
     # Relaciones
-    linea = relationship("Linea", back_populates="tecnicos")
-    incidencias = relationship("Incidencia", back_populates="tecnico")
+    linea = relationship("Linea", back_populates="usuarios")
+    incidencias_cliente = relationship("Incidencia", back_populates="cliente", foreign_keys="[Incidencia.id_cliente]")
+    incidencias_tecnico = relationship("Incidencia", back_populates="tecnico", foreign_keys="[Incidencia.id_tecnico_asignado]")
