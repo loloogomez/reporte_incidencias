@@ -45,7 +45,7 @@ async def login(
         )
     
     # Si las credenciales son válidas, generar el token
-    access_token = create_access_token(data={"sub": user.id_usuario, "tipo_usuario": user.role})
+    access_token = create_access_token(data={"sub": str(user.id_usuario), "tipo_usuario": user.role})
     
     return {"access_token": access_token, "token_type": "bearer"}
 
