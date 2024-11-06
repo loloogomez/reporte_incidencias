@@ -28,28 +28,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Ruta donde FastAPI espera el token de acceso
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
     
-# Endpoint para iniciar sesión
-@router.post("/token")
-async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
-):
-    user = db.query(models.Usuario).filter(models.Usuario.nombre_usuario == form_data.username).first()
-
-    # Verificar credenciales
-    if not user or not verify_password(form_data.password, user.password):
-        raise HTTPException(
-            status_code=401,
-            detail="Credenciales incorrectas",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Si las credenciales son válidas, generar el token
-    access_token = create_access_token(data={"sub": str(user.id_usuario), "tipo_usuario": user.role})
-    
-    return {"access_token": access_token, "token_type": "bearer"}
-
-
 # Función para hashear contraseñas
 def get_password_hash(password: str):
     return pwd_context.hash(password)
@@ -90,3 +68,54 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 
     return user
 
+def verify_token(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM)
+        
+        username: str = payload.get("sub", None)
+        if username is None:
+            raise HTTPException(status_code=403, detail="Token is invalid or expired")
+        
+        rol: str = payload.get("tipo_usuario", None)
+        if rol is None:
+            raise HTTPException(status_code=403, detail="Token is invalid or expired")
+        
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=403, detail="Token is invalid or expired")
+
+# Endpoint para iniciar sesión
+@router.post("/token")
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):  
+    user = db.query(models.Usuario).filter(models.Usuario.nombre_usuario == form_data.username).first()
+
+    # Verificar credenciales
+    if not user or not verify_password(form_data.password, user.password):
+        raise HTTPException(
+            status_code=401,
+            detail="Credenciales incorrectas",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Si las credenciales son válidas, generar el token
+    access_token = create_access_token(data={"sub": str(user.id_usuario), "tipo_usuario": user.role})
+    
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/get_role/{token}")
+async def get_user_role(token: str, current_user = Depends(get_current_user)):
+    role = verify_token(token).get("tipo_usuario")
+    return {"role":role}
+
+@router.get("/get_id_usuario/{token}")
+async def get_user_role(token: str, current_user = Depends(get_current_user)):
+    id_usuario = verify_token(token).get("sub")
+    return {"id_usuario":id_usuario}
+
+@router.get("/verify_token/{token}")
+async def verify_user_token(token: str):
+    verify_token(token)
+    return {"message": "Token is valid"}

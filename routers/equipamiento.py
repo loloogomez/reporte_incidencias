@@ -27,6 +27,13 @@ async def get_equipamiento(id_equipamiento: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Equipamiento no encontrado")
     return equipamiento
 
+@router.get("/por_estacion/{estacion_id}", response_model=list[schemas.Equipamiento], status_code=200)
+async def get_equipamientos_por_estacion(estacion_id: int, db: Session = Depends(get_db)):
+    equipamientos = db.query(models.Equipamiento).filter(models.Equipamiento.id_estacion_asociada == estacion_id).order_by(models.Equipamiento.tipo_equipamiento.asc()).order_by(models.Equipamiento.numero_chasis.asc()).all()
+    if not equipamientos:
+        raise HTTPException(status_code=404, detail="Equipamientos no encontrados")
+    return equipamientos
+
 # Crear nuevo equipamiento
 @router.post("/", response_model=schemas.Equipamiento, status_code=201)
 async def create_equipamiento(equipamiento: schemas.EquipamientoCreate, db: Session = Depends(get_db)):
@@ -38,9 +45,9 @@ async def create_equipamiento(equipamiento: schemas.EquipamientoCreate, db: Sess
         raise HTTPException(status_code=404, detail="Estacion asociada no encontrada")
 
     # Verificar si ya existe un equipamiento con el mismo numero de chasis
-    existing_equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.numero_chasis == equipamiento.numero_chasis).first()
+    existing_equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.numero_chasis == equipamiento.numero_chasis).filter(models.Equipamiento.tipo_equipamiento == equipamiento.tipo_equipamiento).first()
     if existing_equipamiento:
-        raise HTTPException(status_code=400, detail="El numero de chasis ya existe")
+        raise HTTPException(status_code=400, detail="El numero de chasis ya existe para ese tipo de equipamiento")
     
     new_equipamiento = models.Equipamiento(**equipamiento.dict())
     db.add(new_equipamiento)
@@ -61,8 +68,10 @@ async def update_equipamiento(id_equipamiento: int, equipamiento: schemas.Equipa
     if not db_estacion:
         raise HTTPException(status_code=404, detail="Estacion asociada no encontrada")
     
-    # Verificar si ya existe otro equipamiento con el mismo numero de chasis
-    existing_equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.numero_chasis == equipamiento.numero_chasis).first()
+    # Verificar si ya existe un equipamiento con el mismo numero de chasis
+    existing_equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.numero_chasis == equipamiento.numero_chasis).filter(models.Equipamiento.tipo_equipamiento == equipamiento.tipo_equipamiento).first()
+    if existing_equipamiento:
+        raise HTTPException(status_code=400, detail="El numero de chasis ya existe para ese tipo de equipamiento")
 
     # Asegurarse de que no sea el mismo equipamiento (en caso de que el numero de chasis no haya cambiado)
     if existing_equipamiento and existing_equipamiento.id_equipamiento != id_equipamiento:

@@ -13,7 +13,8 @@ class UsuarioBase(BaseModel):
     nombre_usuario: str = Field(..., max_length=50)
     telefono: Optional[str] = Field(None, max_length=50)
     mail: Optional[str] = Field(None, max_length=50)
-    rol: RoleEnum = Field(...)
+    role: RoleEnum = Field(...)
+    id_linea_asociada: int
 
 class UsuarioCreate(UsuarioBase):
     password: str = Field(..., max_length=60)
@@ -47,6 +48,7 @@ class Linea(LineaBase):
 class EquipamientoBase(BaseModel):
     numero_chasis: str = Field(..., max_length=25)
     ubicacion: str = Field(..., max_length=25)
+    tipo_equipamiento: str = Field(..., max_length=25)  
     id_estacion_asociada: int
 
 class EquipamientoCreate(EquipamientoBase):
@@ -87,7 +89,7 @@ class IncidenciaBase(BaseModel):
     tipo_problema: str = Field(..., max_length=50)
     descripcion: Optional[str] = Field(None, max_length=250)
     tipo_resolucion: Optional[str] = Field(None, max_length=250)
-    id_usuario: int  # Se usa el id del Usuario en lugar de id_cliente
+    id_cliente: int
     id_tecnico_asignado: Optional[int] = None
     id_equipamiento: int
 
@@ -102,3 +104,25 @@ class Incidencia(IncidenciaBase):
 
     class Config:
         from_attributes = True
+        
+class IncidenciaCompleta(BaseModel):
+    id_incidencia: int
+    fecha_reclamo: datetime
+    fecha_finalizacion: Optional[datetime] = None
+    prioridad: str = Field(..., max_length=25)
+    flag: str = Field(..., max_length=15)
+    tipo_problema: str = Field(..., max_length=50)
+    descripcion: Optional[str] = Field(None, max_length=250)
+    tipo_resolucion: Optional[str] = Field(None, max_length=250)
+    nombre_cliente: str  # Nombre del cliente
+    nombre_tecnico: Optional[str] = None # Nombre del técnico, puede ser None
+    chasis: str = Field(..., max_length=25)
+    tipo_equipamiento: str = Field(..., max_length=25)
+    nombre_estacion: str = Field(..., max_length=50)
+    nombre_linea: str = Field(..., max_length=50)
+
+    class Config:
+        from_attributes = True
+        
+class TipoResolucion(BaseModel):
+    tipo_resolucion: str

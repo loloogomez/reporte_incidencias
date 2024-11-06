@@ -21,6 +21,11 @@ def get_db():
 async def get_users(db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     return db.query(models.Usuario).all()
 
+# Obtener todos los Usuarios
+@router.get("/tecnico", response_model=list[schemas.Usuario], status_code=200)
+async def get_users(db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+    return db.query(models.Usuario).filter(models.Usuario.role == "tecnico").all()
+
 # Obtener Usuario por ID
 @router.get("/{id_usuario}", response_model=schemas.Usuario, status_code=200)
 async def get_Usuario(id_usuario: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):

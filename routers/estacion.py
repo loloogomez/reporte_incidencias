@@ -19,6 +19,13 @@ def get_db():
 async def get_estaciones(db: Session = Depends(get_db)):
     return db.query(models.Estacion).all()
 
+@router.get("/por_linea/{linea_id}", response_model=list[schemas.Estacion], status_code=200)
+async def get_estaciones(linea_id: int, db: Session = Depends(get_db)):
+    estaciones = db.query(models.Estacion).filter(models.Estacion.id_linea_asociada == linea_id).order_by(models.Estacion.nombre_estacion.asc()).all()
+    if not estaciones:
+        raise HTTPException(status_code=404, detail="Estaciones no encontradas")
+    return estaciones
+
 # Obtener estación por ID
 @router.get("/{id_estacion}", response_model=schemas.Estacion, status_code=200)
 async def get_estacion(id_estacion: int, db: Session = Depends(get_db)):

@@ -18,8 +18,9 @@ class Equipamiento(Base):
     __tablename__ = "equipamiento"
 
     id_equipamiento = Column(Integer, primary_key=True, autoincrement=True)
-    numero_chasis = Column(String(25), unique=True, nullable=False)
+    numero_chasis = Column(String(25), nullable=False)
     ubicacion = Column(String(25), nullable=False)
+    tipo_equipamiento = Column(String(25), nullable=False)
     id_estacion_asociada = Column(Integer, ForeignKey("estacion.id_estacion"), nullable=False)
 
     # Relaciones
