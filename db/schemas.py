@@ -7,6 +7,7 @@ from enum import Enum
 class RoleEnum(str, Enum):
     cliente = "cliente"
     tecnico = "tecnico"
+    admin = "admin"
 
 # Esquema Base para todos los usuarios (Cliente y Técnico)
 class UsuarioBase(BaseModel):

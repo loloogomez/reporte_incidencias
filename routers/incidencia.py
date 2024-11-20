@@ -57,6 +57,11 @@ async def get_incidencias_por_linea(
         query = query.filter(models.Linea.id_linea == lineaID)
 
     query = query.order_by(models.Incidencia.fecha_reclamo.desc())
+    
+     # Si no se aplica ningún filtro, limitar a 20 resultados
+    if not fecha and not lineaID:
+        query = query.limit(20)
+        
     # Ejecutar la consulta
     incidencias = query.all()
     
