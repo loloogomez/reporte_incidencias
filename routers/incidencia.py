@@ -26,6 +26,7 @@ async def get_incidencias(db: Session = Depends(get_db)):
 async def get_incidencias_por_linea(
     fecha: Optional[str] = None,
     lineaID: Optional[int] = None,
+    finalizada: Optional[bool] = None,
     db: Session = Depends(get_db),
 ):
     
@@ -55,11 +56,16 @@ async def get_incidencias_por_linea(
         query = query.filter(models.Incidencia.fecha_reclamo.startswith(fecha))
     if lineaID:
         query = query.filter(models.Linea.id_linea == lineaID)
+    
+    if finalizada:
+        query = query.filter(models.Incidencia.flag == "Finalizada")
+    else:
+        query = query.filter(models.Incidencia.flag != "Finalizada")
 
     query = query.order_by(models.Incidencia.fecha_reclamo.desc())
     
-     # Si no se aplica ningún filtro, limitar a 20 resultados
-    if not fecha and not lineaID:
+    # Si no se aplica ningún filtro, limitar a 20 resultados
+    if not fecha:
         query = query.limit(20)
         
     # Ejecutar la consulta
@@ -103,6 +109,7 @@ async def get_incidencia(id_incidencia: int, db: Session = Depends(get_db)):
 @router.get("/linea_asociada", response_model=list[schemas.IncidenciaCompleta], status_code=200)
 async def get_incidencias_por_linea(
     fecha: Optional[str] = None,
+    finalizada: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: models.Usuario = Depends(get_current_user)
 ):
@@ -134,6 +141,15 @@ async def get_incidencias_por_linea(
      # Aplicar filtro por fecha si se proporciona
     if fecha:
         query = query.filter(models.Incidencia.fecha_reclamo.startswith(fecha))
+        
+    if finalizada:
+        query = query.filter(models.Incidencia.flag == "Finalizada")
+    else:
+        query = query.filter(models.Incidencia.flag != "Finalizada")
+        
+    # Si no se aplica ningún filtro, limitar a 20 resultados
+    if not fecha:
+        query = query.limit(20)
 
     # Ejecutar la consulta
     incidencias = query.all()
