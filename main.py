@@ -1,11 +1,11 @@
 from fastapi import FastAPI
-from routers import auth, equipamiento, estacion, incidencia, linea, usuario
+from routers import auth, equipamiento, estacion, incidencia, linea, usuario, estadistica
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
 origins = [
-     "https://molinetes.desarrollo-tyrrell.com"
+     "https://molinetes.desarrollo-tyrrell.com", "*"
 ]
 
 app.add_middleware(
@@ -22,3 +22,4 @@ app.include_router(estacion.router)
 app.include_router(incidencia.router)
 app.include_router(linea.router)
 app.include_router(usuario.router)
+app.include_router(estadistica.router)
