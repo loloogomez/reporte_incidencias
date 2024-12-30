@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi.responses import StreamingResponse
+from io import BytesIO
 from db import schemas, models
 from db.client import SessionLocal
 from sqlalchemy.orm import Session, aliased
@@ -6,6 +8,7 @@ from datetime import datetime, time
 from routers.auth import get_current_user
 from typing import Optional
 from math import ceil
+import pandas as pd
 
 router = APIRouter(prefix="/incidencia", tags=["incidencia"], responses={404: {"message": "No encontrado"}}, dependencies=[Depends(get_current_user)])
 
@@ -116,6 +119,81 @@ async def get_incidencias_por_linea(
         "total": total_results,
         "pages": total_pages
     }
+    
+# Exportar excel
+@router.get("/exportar_excel", response_class=StreamingResponse)
+async def exportar_excel(
+    fecha_desde: str = Query(...),
+    fecha_hasta: str = Query(...),
+    finalizada: bool = Query(...),
+    db: Session = Depends(get_db)
+):
+    
+    # Alias para los usuarios
+    UsuarioCliente = aliased(models.Usuario)
+    UsuarioTecnico = aliased(models.Usuario)
+    
+    # Consulta a la base de datos con los filtros
+    query = (
+        db.query(
+            models.Incidencia.id_incidencia,
+            models.Incidencia.fecha_reclamo,
+            models.Incidencia.fecha_finalizacion,
+            models.Incidencia.prioridad,
+            models.Incidencia.flag,
+            models.Incidencia.tipo_problema,
+            models.Incidencia.descripcion,
+            models.Incidencia.tipo_resolucion,
+            UsuarioCliente.nombre_usuario.label('nombre_cliente'),
+            UsuarioTecnico.nombre_usuario.label('nombre_tecnico'),
+            models.Equipamiento.numero_chasis.label('chasis'),
+            models.Equipamiento.tipo_equipamiento.label('tipo_equipamiento'),
+            models.Estacion.nombre_estacion.label('nombre_estacion'),
+            models.Linea.nombre_linea.label('nombre_linea')
+        )
+        .join(models.Equipamiento, models.Incidencia.id_equipamiento == models.Equipamiento.id_equipamiento)
+        .join(models.Estacion, models.Equipamiento.id_estacion_asociada == models.Estacion.id_estacion)
+        .join(models.Linea, models.Estacion.id_linea_asociada == models.Linea.id_linea)
+        .outerjoin(UsuarioCliente, models.Incidencia.id_cliente == UsuarioCliente.id_usuario)
+        .outerjoin(UsuarioTecnico, models.Incidencia.id_tecnico_asignado == UsuarioTecnico.id_usuario)
+        .filter(models.Incidencia.fecha_reclamo >= fecha_desde)
+        .filter(models.Incidencia.fecha_reclamo <= fecha_hasta)
+    )
+    
+    if finalizada:
+        query = query.filter(models.Incidencia.flag == "Finalizada")
+    else:
+        query = query.filter(models.Incidencia.flag != "Finalizada")
+        
+    response = query.all()
+        
+
+    # Crear el DataFrame basado en la lista de objetos `response`
+    df = pd.DataFrame([{
+        "Fecha Reclamo": r.fecha_reclamo,
+        "Fecha Resolución": r.fecha_finalizacion,
+        "Prioridad": r.prioridad,
+        "Estado": r.flag,
+        "Tipo incidencia": r.tipo_problema,
+        "Descripción": r.descripcion,
+        "Tipo Resolución": r.tipo_resolucion,
+        "Cliente": r.nombre_cliente,
+        "Técnico": r.nombre_tecnico,
+        "Chasis": r.chasis,
+        "Tipo Equipamiento": r.tipo_equipamiento,
+        "Estación": r.nombre_estacion,
+        "Línea": r.nombre_linea
+    } for r in response])
+
+    # Crear el archivo Excel en memoria
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="Incidencias")
+    output.seek(0)
+
+    # Retornar el archivo como respuesta
+    headers = {"Content-Disposition": "attachment; filename=incidencias.xlsx"}
+    return StreamingResponse(output, headers=headers, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # Obtener incidencia por ID
 @router.get("/get_incidencia/{id_incidencia}", response_model=schemas.Incidencia, status_code=200)
