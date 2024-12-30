@@ -4,6 +4,8 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from db import models
 from db.client import SessionLocal
 from sqlalchemy.orm import Session
+from routers.auth import get_current_user
+
 import pandas as pd
 import plotly.express as px
 import seaborn as sns
@@ -12,7 +14,8 @@ import base64
 from io import BytesIO
 import numpy as np
 
-router = APIRouter(prefix="/estadistica", tags=["estadistica"], responses={404: {"message": "No encontrado"}})
+
+router = APIRouter(prefix="/estadistica", tags=["estadistica"], responses={404: {"message": "No encontrado"}}, dependencies=[Depends(get_current_user)])
 
 # Dependency
 def get_db():
@@ -65,24 +68,65 @@ async def obtener_estadisticas_incidentes(
     datos_df = pd.DataFrame(incidencias, columns=columnas)
     
     datos_df["tiempo_resolucion"] = (datos_df["fecha_finalizacion"] - datos_df["fecha_reclamo"]).dt.days
+    
+    # Resumir los datos por estación y tipo de problema
+    resumen_lineas = datos_df.groupby(["nombre_linea", "tipo_problema"]).size().unstack(fill_value=1)
+
 
     # Contenedor para HTML de gráficos
     html_content = "<html><head><title>Gráficos Solicitados</title></head><body>"
-
-    # Treemap
-    if "treemap" in graficos_solicitados:
-        treemap_fig = px.treemap(
-            datos_df,
-            path=["nombre_linea", "nombre_estacion", "tipo_problema"],
-            title=f"Treemap: Incidencias por Línea, Estación y Tipo de Problema ({fecha_desde} a {fecha_hasta})",
-            color="nombre_linea",
-            color_discrete_sequence=px.colors.qualitative.Pastel
+    
+    if "top_estaciones" in graficos_solicitados:
+        # Agrupar datos por estación y línea, contar incidencias
+        top_estaciones = (
+            datos_df.groupby(["nombre_estacion", "nombre_linea"])
+            .size()
+            .reset_index(name="Cantidad")
+            .sort_values(by="Cantidad", ascending=False)
+            .head(10)  # Tomar las 10 estaciones con más incidencias
         )
-        treemap_html = treemap_fig.to_html(full_html=False)
-        html_content += f"<h3>Treemap</h3>{treemap_html}"
+
+        # Crear etiquetas combinadas de estación y línea
+        top_estaciones["Etiqueta"] = top_estaciones["nombre_estacion"] + "\n" + top_estaciones["nombre_linea"]
+
+        # Configurar el gráfico
+        plt.figure(figsize=(12, 8))
+        ax = sns.barplot(
+            x="Cantidad", 
+            y="Etiqueta", 
+            data=top_estaciones, 
+            hue="Etiqueta",  # Asignar el eje `y` como `hue`
+            palette="coolwarm", 
+            edgecolor="black", 
+            dodge=False,  # Evitar desplazamiento entre barras
+            legend=False  # Ocultar la leyenda
+        )
+        plt.title("Top 10 Estaciones con Más Incidencias Reportadas", fontsize=16)
+        plt.xlabel("Cantidad de Incidencias", fontsize=12)
+        plt.ylabel("Estación - Línea", fontsize=12)
+        plt.xticks(fontsize=10)
+        plt.yticks(fontsize=10)
         
+        # Añadir etiquetas con la cantidad de incidencias en cada barra
+        for container in ax.containers:
+            ax.bar_label(container, fmt="%d", fontsize=10, padding=3)
+
+        # Guardar gráfico como imagen base64
+        with BytesIO() as buffer:
+            plt.savefig(buffer, format="png")
+            buffer.seek(0)
+            top_estaciones_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        plt.close()
+
+        # Añadir el gráfico al HTML
+        html_content += f"""
+        <div style="text-align: center;">
+            <img src="data:image/png;base64,{top_estaciones_base64}" alt="Gráfico de barras - Top 10 Estaciones">
+        </div>
+        """
     
     # Bubble Chart
+    """
     if "bubble_chart" in graficos_solicitados:            
         problema_count = datos_df.groupby(["nombre_linea", "tipo_problema", "nombre_estacion"]).size().reset_index(name="Cantidad")
         np.random.seed(42)
@@ -104,9 +148,11 @@ async def obtener_estadisticas_incidentes(
         bubble_fig.update_traces(marker=dict(opacity=0.8, line=dict(width=1, color="black")), textposition="middle center")
         bubble_html = bubble_fig.to_html(full_html=False)
         html_content += f"<h3>Bubble Chart</h3>{bubble_html}"
+    """
         
     
     # Gráfico de barras con diferenciación por rango
+    """
     if "tiempo_resolucion_barras" in graficos_solicitados:
         
         # Primero, asegurarnos que la columna "cumple_rango" tiene los valores correctos
@@ -152,13 +198,12 @@ async def obtener_estadisticas_incidentes(
         barras_html = barras_fig.to_html(full_html=False)    
     
         html_content += f"<h3>Barras</h3>{barras_html}"
+    
+    """
         
         
     # Barras por tipo de incidencia
     if "tipo_incidencia_barra" in graficos_solicitados:
-        # Resumir los datos por estación y tipo de problema
-        resumen_lineas = datos_df.groupby(["nombre_linea", "tipo_problema"]).size().unstack(fill_value=1)
-
         # Crear una paleta de colores
         colores = sns.color_palette("pastel", n_colors=len(resumen_lineas.columns))
 
@@ -195,9 +240,44 @@ async def obtener_estadisticas_incidentes(
         
         html_content += barras_resumen_html
         
+    # Gráfico de torta total lineas
+    if "torta_general" in graficos_solicitados:
+    # Resumir datos para el gráfico de torta
+        resumen_lineas = datos_df.groupby("nombre_linea").size().reset_index(name="Cantidad")
+        total_incidencias = resumen_lineas["Cantidad"].sum()  # Total de incidencias reportadas
+        colores = sns.color_palette("pastel")[:len(resumen_lineas["Cantidad"])]
+
+        # Crear la figura del gráfico
+        plt.figure(figsize=(10, 8))
+        plt.pie(
+            resumen_lineas["Cantidad"], 
+            labels=resumen_lineas["nombre_linea"], 
+            autopct=lambda p: f'{int(round(p * total_incidencias / 100))}',  # Cantidad absoluta
+            startangle=140,
+            colors=colores,
+            wedgeprops={"linewidth": 1.5, "edgecolor": "white"}, frame=False
+        )
+        plt.title(f"Distribución de Incidencias por Línea\nTotal: {total_incidencias} incidencias", fontsize=16)
+        plt.axis('equal')
+
+        # Guardar gráfico como imagen base64
+        with BytesIO() as buffer:
+            plt.savefig(buffer, format="png")
+            buffer.seek(0)
+            torta_total_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        plt.close()
+
+        # Añadir el gráfico al HTML
+        html_content += f"""
+        <div style="text-align: center;">
+            <img src="data:image/png;base64,{torta_total_base64}" alt="Gráfico de torta de incidencias general">
+        </div>
+        """
+    
+        
     # Gráfico de torta tipo problema por linea
     if "torta_por_linea" in graficos_solicitados:
-        pie_html_lineas = '<div style="display: flex; flex-wrap: wrap; gap: 30px;">'
+        pie_html_lineas = '<div style="display: flex; flex-wrap: wrap; gap: 100%;">'
 
         estaciones_unicas = datos_df["nombre_estacion"].unique()
         problemas_unicos = datos_df["tipo_problema"].unique()
@@ -230,12 +310,13 @@ async def obtener_estadisticas_incidentes(
             plt.close()
 
             # Añadir el gráfico al contenedor HTML
-            pie_html_lineas += f'<div><h3>Línea: {linea}</h3><img src="data:image/png;base64,{linea_base64}" style="width: 300px;"></div>'
+            pie_html_lineas += f'<div style="width: 100%;"><h3>Línea: {linea}</h3><img src="data:image/png;base64,{linea_base64}"></div>'
 
         pie_html_lineas += '</div>'
         html_content += pie_html_lineas
         
     # Volumen mensual por linea
+    """
     if "volumen_mensual_por_linea" in graficos_solicitados:
         # Crear una lista para almacenar los datos que exportaremos
         datos_exportacion = []
@@ -309,24 +390,25 @@ async def obtener_estadisticas_incidentes(
             plt.close()
 
             # Añadir el gráfico al HTML
-            linea_mes_html += f"""
+            linea_mes_html += f
             <h2>Estación: {estacion}</h2>
             <img src="data:image/png;base64,{plot_base64}" alt="Gráfico de Problemas - {estacion}">
-            """
+            
         html_content += linea_mes_html
-        
+    """    
+    
     # GRAFICO DIARIO
     if "volumen_diario_por_linea" in graficos_solicitados:
         linea_dia_html = ""
-        estaciones_unicas = datos_df["nombre_linea"].unique()
+        lineas_unicas = datos_df["nombre_linea"].unique()
         problemas_unicos = datos_df["tipo_problema"].unique()
 
         # Convertir la columna de fecha a formato datetime y extraer el día
         datos_df["fecha_reclamo"] = pd.to_datetime(datos_df["fecha_reclamo"])
         datos_df["dia_reclamo"] = datos_df["fecha_reclamo"].dt.day
 
-        for estacion in estaciones_unicas:
-            estacion_df = datos_df[datos_df["nombre_linea"] == estacion]
+        for linea in lineas_unicas:
+            linea_df = datos_df[datos_df["nombre_linea"] == linea]
             colores_lineas = sns.color_palette("pastel")[:len(problemas_unicos)]
 
             # Crear una nueva figura para cada estación
@@ -334,7 +416,7 @@ async def obtener_estadisticas_incidentes(
 
             # Iterar sobre cada tipo de problema para graficarlos
             for i, problema in enumerate(problemas_unicos):
-                problema_df = estacion_df[estacion_df["tipo_problema"] == problema]
+                problema_df = linea_df[linea_df["tipo_problema"] == problema]
 
                 # Contar la cantidad de problemas por día
                 problemas_por_dia = problema_df.groupby("dia_reclamo").size()
@@ -347,11 +429,12 @@ async def obtener_estadisticas_incidentes(
                     problemas_por_dia.index,
                     problemas_por_dia.values,
                     label=f"{problema}",  # Nombre del problema
-                    color=colores_lineas[i]
+                    color=colores_lineas[i],
+                    linewidth=4
                 )
 
         # Configuración del gráfico (dentro del bucle por estación)
-            ax.set_title(f"Línea de Tiempo de Incidencias - {estacion}", fontsize=16)
+            ax.set_title(f"Línea de Tiempo de Incidencias - {linea}", fontsize=16)
             ax.set_xlabel("Día del Mes", fontsize=12)
             ax.set_ylabel("Cantidad de incidencias", fontsize=12)
             ax.set_xticks(range(1, 32))
@@ -373,8 +456,8 @@ async def obtener_estadisticas_incidentes(
 
             # Añadir el gráfico al HTML
             linea_dia_html += f"""
-            <h2>Estación: {estacion}</h2>
-            <img src="data:image/png;base64,{plot_base64}" alt="Gráfico de Problemas - {estacion}">
+            <h2>Línea: {linea}</h2>
+            <img src="data:image/png;base64,{plot_base64}" alt="Gráfico de incidencias - {linea}">
             """
         html_content += linea_dia_html
         
