@@ -19,7 +19,7 @@ def get_db():
         yield db
     finally:
         db.close()
-
+        
 # Obtener todas las incidencias
 @router.get("/", response_model=list[schemas.Incidencia], status_code=200)
 async def get_incidencias(db: Session = Depends(get_db)):
@@ -129,6 +129,11 @@ async def exportar_excel(
     db: Session = Depends(get_db)
 ):
     
+    fecha_hasta = datetime.strptime(fecha_hasta, "%Y-%m-%d")  # Convertir a objeto datetime
+    # Asegurarnos de que 'fecha_hasta' incluya todo el día (23:59:59)
+    if fecha_hasta.time() == time(0, 0):  # Si la hora es 00:00:00, setear al final del día
+        fecha_hasta = fecha_hasta.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
     # Alias para los usuarios
     UsuarioCliente = aliased(models.Usuario)
     UsuarioTecnico = aliased(models.Usuario)
@@ -170,6 +175,7 @@ async def exportar_excel(
 
     # Crear el DataFrame basado en la lista de objetos `response`
     df = pd.DataFrame([{
+        "Código Incidencia": r.id_incidencia,
         "Fecha Reclamo": r.fecha_reclamo,
         "Fecha Resolución": r.fecha_finalizacion,
         "Prioridad": r.prioridad,
@@ -338,7 +344,7 @@ async def create_incidencia(incidencia: schemas.IncidenciaCreate, db: Session = 
     
     incidencia.fecha_reclamo = datetime.now()
 
-    new_incidencia = models.Incidencia(**incidencia.dict())
+    new_incidencia = models.Incidencia(**incidencia.dict())    
     db.add(new_incidencia)
     db.commit()
     db.refresh(new_incidencia)
