@@ -51,6 +51,7 @@ async def obtener_estadisticas_incidentes(
             models.Incidencia.fecha_reclamo,
             models.Incidencia.fecha_finalizacion,
             models.Incidencia.prioridad,
+            models.Equipamiento.tipo_equipamiento,
         )
         .join(models.Equipamiento, models.Incidencia.id_equipamiento == models.Equipamiento.id_equipamiento)
         .join(models.Estacion, models.Equipamiento.id_estacion_asociada == models.Estacion.id_estacion)
@@ -64,7 +65,7 @@ async def obtener_estadisticas_incidentes(
         raise HTTPException(status_code=404, detail="No se encontraron incidencias en este período.")
 
     # Convertir resultados a DataFrame
-    columnas = ["tipo_problema", "nombre_linea", "nombre_estacion", "fecha_reclamo", "fecha_finalizacion", "prioridad"]
+    columnas = ["tipo_problema", "nombre_linea", "nombre_estacion", "fecha_reclamo", "fecha_finalizacion", "prioridad", "tipo_equipamiento"]
     datos_df = pd.DataFrame(incidencias, columns=columnas)
     
     datos_df["tiempo_resolucion"] = (datos_df["fecha_finalizacion"] - datos_df["fecha_reclamo"]).dt.days
@@ -460,6 +461,112 @@ async def obtener_estadisticas_incidentes(
             <img src="data:image/png;base64,{plot_base64}" alt="Gráfico de incidencias - {linea}">
             """
         html_content += linea_dia_html
+        
+        # Gráfico de torta por tipo de equipamiento
+    if "equipamiento_pie" in graficos_solicitados:
+        resumen_equipamiento = datos_df.groupby("tipo_equipamiento").size().reset_index(name="Cantidad")
+        total_equipos = resumen_equipamiento["Cantidad"].sum()
+        colores = sns.color_palette("pastel", len(resumen_equipamiento))
+
+        plt.figure(figsize=(10, 8))
+        plt.pie(
+            resumen_equipamiento["Cantidad"], 
+            labels=resumen_equipamiento["tipo_equipamiento"],
+            autopct=lambda p: f'{p:.1f}%',
+            startangle=140,
+            colors=colores,
+            wedgeprops={"linewidth": 1.5, "edgecolor": "white"}
+        )
+        plt.title(f"Distribución de Incidencias por Tipo de Equipamiento\nTotal: {total_equipos} incidencias", fontsize=16)
+        plt.axis('equal')
+
+        with BytesIO() as buffer:
+            plt.savefig(buffer, format="png")
+            buffer.seek(0)
+            equip_pie_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        plt.close()
+
+        html_content += f"""
+        <div style="text-align: center;">
+            <h3>Distribución por Tipo de Equipamiento</h3>
+            <img src="data:image/png;base64,{equip_pie_base64}" alt="Torta equipamiento">
+        </div>
+        """
+
+    # Gráfico de barras por tipo de equipamiento
+    if "equipamiento_barra" in graficos_solicitados:
+        resumen_equipamiento = datos_df.groupby("tipo_equipamiento").size().reset_index(name="Cantidad")
+
+        plt.figure(figsize=(12, 8))
+        ax = sns.barplot(
+            x="tipo_equipamiento", 
+            y="Cantidad", 
+            data=resumen_equipamiento,
+            palette="viridis",
+            edgecolor="black"
+        )
+        plt.title("Cantidad de Incidencias por Tipo de Equipamiento", fontsize=16)
+        plt.xlabel("Tipo de Equipamiento", fontsize=12)
+        plt.ylabel("Cantidad de Incidencias", fontsize=12)
+        plt.xticks(rotation=45, ha="right")
+        
+        # Añadir etiquetas
+        for container in ax.containers:
+            ax.bar_label(container, fmt="%d", fontsize=10, padding=3)
+
+        with BytesIO() as buffer:
+            plt.savefig(buffer, format="png", bbox_inches="tight")
+            buffer.seek(0)
+            equip_barra_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        plt.close()
+
+        html_content += f"""
+        <div style="text-align: center;">
+            <h3>Incidencias por Tipo de Equipamiento</h3>
+            <img src="data:image/png;base64,{equip_barra_base64}" alt="Barras equipamiento">
+        </div>
+        """
+
+    # Gráfico de vandalismo por línea (modificado a treemap)
+    if "vandalismo_lineas" in graficos_solicitados:
+        vandalismo_df = datos_df[datos_df["tipo_problema"] == "Vandalismo"]
+        
+        if not vandalismo_df.empty:
+            resumen_vandalismo = vandalismo_df.groupby("nombre_linea").size().reset_index(name="Cantidad")
+            
+            # Importar squarify (asegúrate de tenerlo instalado: pip install squarify)
+            import squarify
+
+            plt.figure(figsize=(12, 8))
+            sizes = resumen_vandalismo["Cantidad"]
+            # Crear etiquetas que muestren la línea y la cantidad de incidencias
+            labels = [f"{row['nombre_linea']}\n{row['Cantidad']}" for _, row in resumen_vandalismo.iterrows()]
+            
+            # Generar el treemap; se utiliza un cmap para los colores según la cantidad
+            cmap = plt.cm.Reds
+            # Normalizar los tamaños para asignar colores
+            colores = [cmap(float(val) / max(sizes)) for val in sizes]
+            # Dibujar el treemap
+            squarify.plot(sizes=sizes, label=labels, color=colores, alpha=0.8, pad=True)
+            
+            plt.axis('off')
+            plt.title("Incidencias de Vandalismo por Línea", fontsize=16)
+            
+            # Guardar el gráfico como imagen base64
+            with BytesIO() as buffer:
+                plt.savefig(buffer, format="png", bbox_inches="tight")
+                buffer.seek(0)
+                vandalismo_treemap_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            plt.close()
+            
+            html_content += f"""
+            <div style="text-align: center;">
+                <h3>Incidencias de Vandalismo por Línea</h3>
+                <img src="data:image/png;base64,{vandalismo_treemap_base64}" alt="Treemap de vandalismo por línea">
+            </div>
+            """
+        else:
+            html_content += "<p>No se encontraron incidencias de vandalismo en el período seleccionado.</p>"
         
     # Finalizar HTML
     html_content += "</body></html>"
