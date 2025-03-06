@@ -126,6 +126,8 @@ async def exportar_excel(
     fecha_desde: str = Query(...),
     fecha_hasta: str = Query(...),
     finalizada: bool = Query(...),
+    id_linea: Optional[int] = Query(None),
+    current_user: models.Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     
@@ -169,6 +171,12 @@ async def exportar_excel(
         query = query.filter(models.Incidencia.flag == "Finalizada")
     else:
         query = query.filter(models.Incidencia.flag != "Finalizada")
+        
+    if id_linea is not None:
+        query = query.filter(models.Linea.id_linea == id_linea)
+    else:
+        if (current_user.role == "cliente"):
+            query = query.filter(models.Linea.id_linea == current_user.id_linea_asociada)
         
     response = query.all()
         
