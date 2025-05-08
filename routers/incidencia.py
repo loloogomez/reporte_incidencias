@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from io import BytesIO
 from db import schemas, models
@@ -413,7 +413,8 @@ async def finalizar_incidencia(
     id_incidencia: int,
     tipo_finalizacion: Optional[schemas.TipoResolucion] = None,
     db: Session = Depends(get_db),
-    current_user: schemas.Usuario = Depends(get_current_user)
+    current_user: schemas.Usuario = Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks()
 ):
     # Buscar la incidencia en la base de datos
     db_incidencia = db.query(models.Incidencia).filter(models.Incidencia.id_incidencia == id_incidencia).first()
@@ -439,46 +440,48 @@ async def finalizar_incidencia(
     
     # Enviar correo si la incidencia tiene un numero_reclamo
     if db_incidencia.numero_reclamo:
-        try:
-            # Obtener información adicional para el correo
-             # Obtener información adicional para el correo
-            cliente = db.query(models.Usuario).filter(models.Usuario.id_usuario == db_incidencia.id_cliente).first()
-            equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.id_equipamiento == db_incidencia.id_equipamiento).first()
-            estacion = db.query(models.Estacion).filter(models.Estacion.id_estacion == equipamiento.id_estacion_asociada).first()
-            linea = db.query(models.Linea).filter(models.Linea.id_linea == estacion.id_linea_asociada).first()
-
-            # Crear el contenido del correo
-            email_subject = "Incidencia Finalizada - Número de Reclamo: {}".format(db_incidencia.numero_reclamo)
-            email_body = f"""
-            NUMERO DE RECLAMO: {db_incidencia.numero_reclamo}
-            LINEA: {linea.nombre_linea}
-            ESTACION: {estacion.nombre_estacion}
-            CHASIS: {equipamiento.numero_chasis}
-            TIPO EQUIPAMIENTO: {equipamiento.tipo_equipamiento}
-            FECHA FINALIZACION: {db_incidencia.fecha_finalizacion.strftime('%d/%m/%Y')}
-            RESOLUCIÓN: {db_incidencia.tipo_resolucion}
-            """
-
-            # Configuración del servidor de correo
-            sender_email = "info@molinetes.desarrollo-tyrrell.com"
-            sender_password = "Tyrrell2022.."
-            recipient_email = cliente.mail  # Asumiendo que el cliente tiene un campo 'email'
-
-            # Crear el mensaje de correo
-            message = MIMEMultipart()
-            message["From"] = sender_email
-            message["To"] = recipient_email
-            message["Subject"] = email_subject
-            message.attach(MIMEText(email_body, "plain"))
-
-            # Enviar el correo
-            with smtplib.SMTP("smtp.hostinger.com", 587) as server:
-                server.starttls()
-                server.login(sender_email, sender_password)
-                server.sendmail(sender_email, recipient_email, message.as_string())
-
-            print("Correo enviado exitosamente a:", recipient_email)
-        except Exception as e:
-            print("Error al enviar el correo:", e)
+        background_tasks.add_task(send_email, db_incidencia, db)
     
     return db_incidencia
+
+def send_email(db_incidencia, db):
+    try:
+        # Obtener información adicional para el correo
+        cliente = db.query(models.Usuario).filter(models.Usuario.id_usuario == db_incidencia.id_cliente).first()
+        equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.id_equipamiento == db_incidencia.id_equipamiento).first()
+        estacion = db.query(models.Estacion).filter(models.Estacion.id_estacion == equipamiento.id_estacion_asociada).first()
+        linea = db.query(models.Linea).filter(models.Linea.id_linea == estacion.id_linea_asociada).first()
+
+        # Crear el contenido del correo
+        email_subject = "Incidencia Finalizada - Número de Reclamo: {}".format(db_incidencia.numero_reclamo)
+        email_body = f"""
+        NUMERO DE RECLAMO: {db_incidencia.numero_reclamo}
+        LINEA: {linea.nombre_linea}
+        ESTACION: {estacion.nombre_estacion}
+        CHASIS: {equipamiento.numero_chasis}
+        TIPO EQUIPAMIENTO: {equipamiento.tipo_equipamiento}
+        FECHA FINALIZACION: {db_incidencia.fecha_finalizacion.strftime('%d/%m/%Y')}
+        RESOLUCIÓN: {db_incidencia.tipo_resolucion}
+        """
+
+        # Configuración del servidor de correo
+        sender_email = "info@molinetes.desarrollo-tyrrell.com"
+        sender_password = "Tyrrell2022.."
+        recipient_email = cliente.mail  # Asumiendo que el cliente tiene un campo 'email'
+
+        # Crear el mensaje de correo
+        message = MIMEMultipart()
+        message["From"] = sender_email
+        message["To"] = recipient_email
+        message["Subject"] = email_subject
+        message.attach(MIMEText(email_body, "plain"))
+
+        # Enviar el correo
+        with smtplib.SMTP("smtp.hostinger.com", 587) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, recipient_email, message.as_string())
+
+        print("Correo enviado exitosamente a:", recipient_email)
+    except Exception as e:
+        print("Error al enviar el correo:", e)
