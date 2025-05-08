@@ -83,6 +83,7 @@ class Estacion(EstacionBase):
 
 # Esquema para 'Incidencia'
 class IncidenciaBase(BaseModel):
+    numero_reclamo: Optional[str] = Field(None, max_length=50)
     fecha_reclamo: Optional[datetime] = None
     fecha_finalizacion: Optional[datetime] = None
     prioridad: str = Field(..., max_length=25)
@@ -108,6 +109,7 @@ class Incidencia(IncidenciaBase):
         
 class IncidenciaCompleta(BaseModel):
     id_incidencia: int
+    numero_reclamo: Optional[str] = Field(None, max_length=50)
     fecha_reclamo: datetime
     fecha_finalizacion: Optional[datetime] = None
     prioridad: str = Field(..., max_length=25)

@@ -78,7 +78,8 @@ async def update_Usuario(id_usuario: int, Usuario: schemas.UsuarioUpdate, db: Se
         raise HTTPException(status_code=404, detail="Línea asociada no encontrada")
 
     # encriptar la clave
-    Usuario.password = get_password_hash(Usuario.password)
+    if Usuario.password:
+        Usuario.password = get_password_hash(Usuario.password)
 
     for key, value in Usuario.dict(exclude_unset=True).items():
         setattr(db_Usuario, key, value)

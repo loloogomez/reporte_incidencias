@@ -9,6 +9,9 @@ from routers.auth import get_current_user
 from typing import Optional
 from math import ceil
 import pandas as pd
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 router = APIRouter(prefix="/incidencia", tags=["incidencia"], responses={404: {"message": "No encontrado"}}, dependencies=[Depends(get_current_user)])
 
@@ -97,6 +100,7 @@ async def get_incidencias_por_linea(
     for incidencia, nombre_cliente, nombre_tecnico, chasis, tipo_equipamiento, nombre_estacion, nombre_linea in results:
         response.append(schemas.IncidenciaCompleta(
             id_incidencia=incidencia.id_incidencia,
+            numero_reclamo=incidencia.numero_reclamo,
             fecha_reclamo=incidencia.fecha_reclamo,
             fecha_finalizacion=incidencia.fecha_finalizacion,
             prioridad=incidencia.prioridad,
@@ -144,6 +148,7 @@ async def exportar_excel(
     query = (
         db.query(
             models.Incidencia.id_incidencia,
+            models.Incidencia.numero_reclamo, 
             models.Incidencia.fecha_reclamo,
             models.Incidencia.fecha_finalizacion,
             models.Incidencia.prioridad,
@@ -184,6 +189,7 @@ async def exportar_excel(
     # Crear el DataFrame basado en la lista de objetos `response`
     df = pd.DataFrame([{
         "Código Incidencia": r.id_incidencia,
+        "Número Reclamo": r.numero_reclamo,
         "Fecha Reclamo": r.fecha_reclamo,
         "Fecha Resolución": r.fecha_finalizacion,
         "Prioridad": r.prioridad,
@@ -290,6 +296,7 @@ async def get_incidencias_por_linea(
     for incidencia, nombre_cliente, nombre_tecnico, chasis, tipo_equipamiento, nombre_estacion, nombre_linea in incidencias:
         response.append(schemas.IncidenciaCompleta(
             id_incidencia=incidencia.id_incidencia,
+            numero_reclamo=incidencia.numero_reclamo,
             fecha_reclamo=incidencia.fecha_reclamo,
             fecha_finalizacion=incidencia.fecha_finalizacion,
             prioridad=incidencia.prioridad,
@@ -304,6 +311,8 @@ async def get_incidencias_por_linea(
             nombre_estacion=nombre_estacion,
             nombre_linea=nombre_linea  
         ))
+    
+    print(response)
     
     return {
         "incidencias": response,
@@ -349,6 +358,11 @@ async def create_incidencia(incidencia: schemas.IncidenciaCreate, db: Session = 
     db_equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.id_equipamiento == incidencia.id_equipamiento).first()
     if not db_equipamiento:
         raise HTTPException(status_code=404, detail="Equipamiento no encontrado")
+    
+    if incidencia.numero_reclamo:
+        db_incidencia = db.query(models.Incidencia).filter(models.Incidencia.numero_reclamo == incidencia.numero_reclamo).first()
+        if db_incidencia:
+            raise HTTPException(status_code=400, detail="Número de reclamo ya existe")
     
     incidencia.fecha_reclamo = datetime.now()
 
@@ -422,5 +436,49 @@ async def finalizar_incidencia(
     # Guardar cambios en la base de datos
     db.commit()
     db.refresh(db_incidencia)
+    
+    # Enviar correo si la incidencia tiene un numero_reclamo
+    if db_incidencia.numero_reclamo:
+        try:
+            # Obtener información adicional para el correo
+             # Obtener información adicional para el correo
+            cliente = db.query(models.Usuario).filter(models.Usuario.id_usuario == db_incidencia.id_cliente).first()
+            equipamiento = db.query(models.Equipamiento).filter(models.Equipamiento.id_equipamiento == db_incidencia.id_equipamiento).first()
+            estacion = db.query(models.Estacion).filter(models.Estacion.id_estacion == equipamiento.id_estacion_asociada).first()
+            linea = db.query(models.Linea).filter(models.Linea.id_linea == estacion.id_linea_asociada).first()
+
+            # Crear el contenido del correo
+            email_subject = "Incidencia Finalizada - Número de Reclamo: {}".format(db_incidencia.numero_reclamo)
+            email_body = f"""
+            NUMERO DE RECLAMO: {db_incidencia.numero_reclamo}
+            LINEA: {linea.nombre_linea}
+            ESTACION: {estacion.nombre_estacion}
+            CHASIS: {equipamiento.numero_chasis}
+            TIPO EQUIPAMIENTO: {equipamiento.tipo_equipamiento}
+            FECHA FINALIZACION: {db_incidencia.fecha_finalizacion.strftime('%d/%m/%Y')}
+            RESOLUCIÓN: {db_incidencia.tipo_resolucion}
+            """
+
+            # Configuración del servidor de correo
+            sender_email = "info@molinetes.desarrollo-tyrrell.com"
+            sender_password = "Tyrrell2022.."
+            recipient_email = cliente.mail  # Asumiendo que el cliente tiene un campo 'email'
+
+            # Crear el mensaje de correo
+            message = MIMEMultipart()
+            message["From"] = sender_email
+            message["To"] = recipient_email
+            message["Subject"] = email_subject
+            message.attach(MIMEText(email_body, "plain"))
+
+            # Enviar el correo
+            with smtplib.SMTP("smtp.hostinger.com", 587) as server:
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, recipient_email, message.as_string())
+
+            print("Correo enviado exitosamente a:", recipient_email)
+        except Exception as e:
+            print("Error al enviar el correo:", e)
     
     return db_incidencia
