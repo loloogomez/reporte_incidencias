@@ -312,8 +312,6 @@ async def get_incidencias_por_linea(
             nombre_linea=nombre_linea  
         ))
     
-    print(response)
-    
     return {
         "incidencias": response,
         "page": page,
